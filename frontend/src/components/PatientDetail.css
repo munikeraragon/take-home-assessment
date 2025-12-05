@@ -189,6 +189,30 @@
   font-style: italic;
 }
 
+.read-more-btn {
+  background: none;
+  border: none;
+  color: #667eea;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.5rem 0;
+  margin-bottom: 1rem;
+  transition: color 0.3s;
+}
+
+.read-more-btn:hover {
+  color: #5568d3;
+  text-decoration: underline;
+}
+
+.blockchain-hash {
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  word-break: break-all;
+  overflow-wrap: break-word;
+}
+
 @media (max-width: 768px) {
   .patient-detail-container {
     padding: 1rem;

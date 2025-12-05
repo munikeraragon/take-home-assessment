@@ -7,22 +7,34 @@ const PatientList = ({ onSelectPatient }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState(null);
 
-  // TODO: Implement the fetchPatients function
-  // This function should:
-  // 1. Call apiService.getPatients with appropriate parameters (page, limit, search)
-  // 2. Update the patients state with the response data
-  // 3. Update the pagination state
-  // 4. Handle loading and error states
+  // Debounce the search term - wait 500ms after user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Reset to first page when debounced search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchTerm]);
+
+  // Fetch patients with pagination and search
   const fetchPatients = async () => {
-    // Your implementation here
     setLoading(true);
+    setError(null);
     try {
-      // TODO: Call API and update state
+      const response = await apiService.getPatients(currentPage, 10, debouncedSearchTerm);
+      setPatients(response.patients || []);
+      setPagination(response.pagination || null);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Failed to fetch patients');
     } finally {
       setLoading(false);
     }
@@ -30,60 +42,101 @@ const PatientList = ({ onSelectPatient }) => {
 
   useEffect(() => {
     fetchPatients();
-  }, [currentPage, searchTerm]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, debouncedSearchTerm]);
 
-  // TODO: Implement search functionality
-  // Add a debounce or handle search input changes
+  // Handle search input changes
   const handleSearch = (e) => {
-    // Your implementation here
+    setSearchTerm(e.target.value);
   };
-
-  if (loading) {
-    return (
-      <div className="patient-list-container">
-        <div className="loading">Loading patients...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="patient-list-container">
-        <div className="error">Error: {error}</div>
-      </div>
-    );
-  }
 
   return (
     <div className="patient-list-container">
       <div className="patient-list-header">
         <h2>Patients</h2>
-        {/* TODO: Add search input field */}
         <input
           type="text"
           placeholder="Search patients..."
           className="search-input"
-          // TODO: Add value, onChange handlers
+          value={searchTerm}
+          onChange={handleSearch}
         />
       </div>
 
-      {/* TODO: Implement patient list display */}
-      {/* Map through patients and display them */}
-      {/* Each patient should be clickable and call onSelectPatient with patient.id */}
-      <div className="patient-list">
-        {/* Your implementation here */}
-        <div className="placeholder">
-          <p>Patient list will be displayed here</p>
-          <p>Implement the patient list rendering</p>
-        </div>
-      </div>
+      {loading ? (
+        <div className="loading">Loading patients...</div>
+      ) : error ? (
+        <div className="error">Error: {error}</div>
+      ) : (
+        <>
+          <div className="patient-list">
+            {patients.length === 0 ? (
+              <div className="placeholder">
+                <p>No patients found</p>
+                {searchTerm && <p>Try adjusting your search terms</p>}
+              </div>
+            ) : (
+              patients.map((patient) => (
+                <div
+                  key={patient.id}
+                  className="patient-card"
+                  onClick={() => onSelectPatient(patient.id)}
+                >
+                  <div className="patient-card-header">
+                    <div>
+                      <div className="patient-name">{patient.name}</div>
+                      <div className="patient-id">{patient.patientId}</div>
+                    </div>
+                  </div>
+                  <div className="patient-info">
+                    <div className="patient-info-item">
+                      <span>📧</span>
+                      <span>{patient.email}</span>
+                    </div>
+                    <div className="patient-info-item">
+                      <span>📞</span>
+                      <span>{patient.phone}</span>
+                    </div>
+                    <div className="patient-info-item">
+                      <span>🎂</span>
+                      <span>{new Date(patient.dateOfBirth).toLocaleDateString()}</span>
+                    </div>
+                    <div className="patient-info-item">
+                      <span>{patient.gender === 'Male' ? '👨' : '👩'}</span>
+                      <span>{patient.gender}</span>
+                    </div>
+                  </div>
+                  {patient.walletAddress && (
+                    <div className="patient-wallet">
+                      🔐 {patient.walletAddress}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
 
-      {/* TODO: Implement pagination controls */}
-      {/* Show pagination buttons if pagination data is available */}
-      {pagination && (
-        <div className="pagination">
-          {/* Your pagination implementation here */}
-        </div>
+          {pagination && pagination.totalPages > 1 && (
+            <div className="pagination">
+              <button
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                ← Previous
+              </button>
+              <span className="pagination-info">
+                Page {pagination.currentPage} of {pagination.totalPages}
+                {' '}({pagination.total} total patients)
+              </span>
+              <button
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === pagination.totalPages}
+              >
+                Next →
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
