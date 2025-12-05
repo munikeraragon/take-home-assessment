@@ -15,15 +15,17 @@ const ConsentManagement = ({ account }) => {
     purpose: '',
   });
 
-  // TODO: Implement fetchConsents function
+  // Fetch consents with optional status filter
   useEffect(() => {
     const fetchConsents = async () => {
       setLoading(true);
+      setError(null);
       try {
-        // TODO: Call apiService.getConsents with appropriate filters
-        // TODO: Update consents state
+        const status = filterStatus === 'all' ? null : filterStatus;
+        const response = await apiService.getConsents(null, status);
+        setConsents(response.consents || []);
       } catch (err) {
-        setError(err.message);
+        setError(err.message || 'Failed to fetch consents');
       } finally {
         setLoading(false);
       }
@@ -32,11 +34,7 @@ const ConsentManagement = ({ account }) => {
     fetchConsents();
   }, [filterStatus]);
 
-  // TODO: Implement createConsent function
-  // This should:
-  // 1. Sign a message using signMessage from useWeb3 hook
-  // 2. Call apiService.createConsent with the consent data and signature
-  // 3. Refresh the consents list
+  // Create consent with MetaMask signature
   const handleCreateConsent = async (e) => {
     e.preventDefault();
     if (!account) {
@@ -45,22 +43,44 @@ const ConsentManagement = ({ account }) => {
     }
 
     try {
-      // TODO: Implement consent creation with signature
-      // 1. Create a message to sign (e.g., "I consent to: {purpose} for patient: {patientId}")
-      // 2. Sign the message using signMessage
-      // 3. Call apiService.createConsent with patientId, purpose, account, and signature
-      // 4. Refresh consents and reset form
+      // Create message to sign
+      const message = `I consent to: ${formData.purpose} for patient: ${formData.patientId}`;
+      
+      // Sign message with MetaMask
+      const signature = await signMessage(message);
+      
+      // Create consent with signature
+      await apiService.createConsent({
+        patientId: formData.patientId,
+        purpose: formData.purpose,
+        walletAddress: account,
+        signature: signature
+      });
+      
+      // Refresh consents list
+      const response = await apiService.getConsents(null, filterStatus === 'all' ? null : filterStatus);
+      setConsents(response.consents || []);
+      
+      // Reset form
+      setFormData({ patientId: '', purpose: '' });
+      setShowCreateForm(false);
+      
+      alert('Consent created successfully!');
     } catch (err) {
       alert('Failed to create consent: ' + err.message);
     }
   };
 
-  // TODO: Implement updateConsentStatus function
-  // This should update a consent's status (e.g., from pending to active)
+  // Update consent status
   const handleUpdateStatus = async (consentId, newStatus) => {
     try {
-      // TODO: Call apiService.updateConsent to update the status
-      // TODO: Refresh consents list
+      await apiService.updateConsent(consentId, { status: newStatus });
+      
+      // Refresh consents list
+      const response = await apiService.getConsents(null, filterStatus === 'all' ? null : filterStatus);
+      setConsents(response.consents || []);
+      
+      alert(`Consent status updated to ${newStatus}!`);
     } catch (err) {
       alert('Failed to update consent: ' + err.message);
     }
@@ -149,16 +169,74 @@ const ConsentManagement = ({ account }) => {
         </button>
       </div>
 
-      {/* TODO: Display consents list */}
+      {/* Display consents list */}
       <div className="consents-list">
-        {/* Your implementation here */}
-        {/* Map through consents and display them */}
-        {/* Show: patientId, purpose, status, createdAt, blockchainTxHash */}
-        {/* Add buttons to update status for pending consents */}
-        <div className="placeholder">
-          <p>Consent list will be displayed here</p>
-          <p>Implement the consent list rendering</p>
-        </div>
+        {error && <div className="error">Error: {error}</div>}
+        
+        {consents.length === 0 ? (
+          <div className="placeholder">
+            <p>No consents found</p>
+            {filterStatus !== 'all' && <p>Try adjusting your filters</p>}
+          </div>
+        ) : (
+          consents.map((consent) => (
+            <div key={consent.id} className="consent-card">
+              <div className="consent-card-header">
+                <div>
+                  <div className="consent-purpose">{consent.purpose}</div>
+                  <div className="consent-patient">Patient: {consent.patientId}</div>
+                </div>
+                <span className={`consent-status-badge ${consent.status}`}>
+                  {consent.status}
+                </span>
+              </div>
+              
+              <div className="consent-details">
+                <div className="consent-detail-item">
+                  <span className="label">Wallet Address:</span>
+                  <span className="value wallet-address">{consent.walletAddress}</span>
+                </div>
+                <div className="consent-detail-item">
+                  <span className="label">Created:</span>
+                  <span className="value">
+                    {new Date(consent.createdAt).toLocaleString()}
+                  </span>
+                </div>
+                {consent.blockchainTxHash && (
+                  <div className="consent-detail-item">
+                    <span className="label">Blockchain TX:</span>
+                    <span className="value tx-hash">{consent.blockchainTxHash}</span>
+                  </div>
+                )}
+                {consent.signature && (
+                  <div className="consent-detail-item">
+                    <span className="label">Signature:</span>
+                    <span className="value signature">
+                      {consent.signature.substring(0, 20)}...{consent.signature.substring(consent.signature.length - 20)}
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              {consent.status === 'pending' && (
+                <div className="consent-actions">
+                  <button
+                    className="action-btn approve"
+                    onClick={() => handleUpdateStatus(consent.id, 'active')}
+                  >
+                    ✓ Approve
+                  </button>
+                  <button
+                    className="action-btn reject"
+                    onClick={() => handleUpdateStatus(consent.id, 'revoked')}
+                  >
+                    ✗ Revoke
+                  </button>
+                </div>
+              )}
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
