@@ -71,7 +71,6 @@ const TransactionHistory = ({ account }) => {
       setCopiedAddress(txId);
       setTimeout(() => setCopiedAddress(null), 2000);
     } catch (err) {
-      console.error('Failed to copy:', err);
       alert('Failed to copy address');
     }
   };
